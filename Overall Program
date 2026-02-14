@@ -1,0 +1,866 @@
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.JTableHeader;
+import java.awt.*;
+import java.io.*;
+
+/* ================= File Utility (Stores Data Safely) ================= */
+class FileUtil {
+
+    static void ensureFileExists(String fileName) {
+        try {
+            File f = new File(fileName);
+            if (!f.exists()) f.createNewFile();
+        } catch (IOException e) {
+            // ignore
+        }
+    }
+
+    static void appendLine(String fileName, String line) {
+        ensureFileExists(fileName);
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(fileName, true))) {
+            bw.write(line);
+            bw.newLine();
+        } catch (IOException e) {
+            // ignore
+        }
+    }
+}
+
+/* ================= Doctor Class ================= */
+class Doctor {
+    String name, department, email, phone, city;
+
+    Doctor(String name, String department, String email, String phone, String city) {
+        this.name = name;
+        this.department = department;
+        this.email = email;
+        this.phone = phone;
+        this.city = city;
+    }
+}
+
+/* ================= Doctor Service ================= */
+class DoctorService {
+    static Doctor[] doctors = {
+            new Doctor("Dr. Ali","Cardiology","ali@hospital.com","03001234567","Karachi"),
+            new Doctor("Dr. Sara","Dermatology","sara@hospital.com","03007654321","Karachi"),
+            new Doctor("Dr. Ahmed","General Medicine","ahmed@hospital.com","03009876543","Lahore"),
+            new Doctor("Dr. Hina","Neurology","hina@hospital.com","03005551234","Islamabad"),
+            new Doctor("Dr. Salman","Gastroenterology","salman@hospital.com","03009998877","Lahore"),
+            new Doctor("Dr. Fatima","Pulmonology","fatima@hospital.com","03006664455","Karachi"),
+            new Doctor("Dr. Imran","Orthopedics","imran@hospital.com","03007778888","Hyderabad"),
+            new Doctor("Dr. Ayesha","Gynaecology","ayesha@hospital.com","03001112223","Karachi"),
+            new Doctor("Dr. Talha","Dentistry","talha@hospital.com","03004445566","Islamabad"),
+            new Doctor("Dr. Waqas","ENT","waqas@hospital.com","03005556677","Lahore")
+    };
+
+    static Doctor[] getDoctorsByDepartment(String department) {
+        int count = 0;
+        for (Doctor d : doctors) if (d.department.equalsIgnoreCase(department)) count++;
+        Doctor[] result = new Doctor[count];
+        int idx = 0;
+        for (Doctor d : doctors) if (d.department.equalsIgnoreCase(department)) result[idx++] = d;
+        return result;
+    }
+
+    static Doctor[] getDoctorsByCityAndSpecialty(String city, String specialty) {
+        int count = 0;
+        for (Doctor d : doctors) {
+            boolean cityOk = city == null || city.isBlank() || d.city.equalsIgnoreCase(city.trim());
+            boolean specOk = specialty == null || specialty.isBlank() || d.department.equalsIgnoreCase(specialty.trim());
+            if (cityOk && specOk) count++;
+        }
+        Doctor[] result = new Doctor[count];
+        int idx = 0;
+        for (Doctor d : doctors) {
+            boolean cityOk = city == null || city.isBlank() || d.city.equalsIgnoreCase(city.trim());
+            boolean specOk = specialty == null || specialty.isBlank() || d.department.equalsIgnoreCase(specialty.trim());
+            if (cityOk && specOk) result[idx++] = d;
+        }
+        return result;
+    }
+
+    static String[] getDoctorNames() {
+        String[] names = new String[doctors.length];
+        for (int i = 0; i < doctors.length; i++)
+            names[i] = doctors[i].name + " (" + doctors[i].department + ", " + doctors[i].city + ")";
+        return names;
+    }
+}
+
+/* ================= Hospital Class ================= */
+class Hospital {
+    String name, district;
+    double lat, lon;
+
+    Hospital(String name, String district, double lat, double lon) {
+        this.name = name;
+        this.district = district;
+        this.lat = lat;
+        this.lon = lon;
+    }
+}
+
+/* ================= Emergency Service ================= */
+class EmergencyService {
+    static Hospital[] hospitals = {
+            new Hospital("Jinnah Hospital", "Lahore", 31.52, 74.35),
+            new Hospital("Mayo Hospital", "Lahore", 31.57, 74.31),
+            new Hospital("Services Hospital", "Lahore", 31.54, 74.34),
+            new Hospital("Civil Hospital", "Karachi", 24.86, 67.01),
+            new Hospital("Aga Khan Hospital", "Karachi", 24.89, 67.07),
+            new Hospital("JPMC", "Karachi", 24.87, 67.05),
+            new Hospital("PIMS", "Islamabad", 33.70, 73.06),
+            new Hospital("LRH", "Peshawar", 34.01, 71.55)
+    };
+
+    static void findNearest(Component parent) {
+        JTextField districtField = new JTextField();
+        JTextField latField = new JTextField();
+        JTextField lonField = new JTextField();
+        Object[] message = {
+                "District/City:", districtField,
+                "Approx Latitude:", latField,
+                "Approx Longitude:", lonField
+        };
+        int option = JOptionPane.showConfirmDialog(parent, message, "Emergency Service", JOptionPane.OK_CANCEL_OPTION);
+        if (option != JOptionPane.OK_OPTION) return;
+
+        String district = districtField.getText().trim();
+        double userLat, userLon;
+        try {
+            userLat = Double.parseDouble(latField.getText().trim());
+            userLon = Double.parseDouble(lonField.getText().trim());
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(parent, "Invalid latitude/longitude!", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        Hospital nearest = null;
+        double minDist = Double.MAX_VALUE;
+        for (Hospital h : hospitals) {
+            if (h.district.equalsIgnoreCase(district)) {
+                double dist = Math.sqrt(Math.pow(userLat - h.lat, 2) + Math.pow(userLon - h.lon, 2));
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearest = h;
+                }
+            }
+        }
+
+        if (nearest != null) {
+            FileUtil.appendLine("emergency_history.txt",
+                    "City=" + district + "|Lat=" + userLat + "|Lon=" + userLon + "|Nearest=" + nearest.name + "|Dist=" + minDist);
+            JOptionPane.showMessageDialog(parent,
+                    "Nearest Hospital: " + nearest.name + "\nApprox Distance (rough): " + String.format("%.2f", minDist),
+                    "Result", JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            JOptionPane.showMessageDialog(parent, "No hospital found in this district/city.", "Result", JOptionPane.WARNING_MESSAGE);
+        }
+    }
+}
+
+/* ================= Diagnosis Service ================= */
+class DiagnosisService {
+    static class DiseaseInfo {
+        String[] symptoms;
+        String treatment, precautions, cause, medicine, department;
+        String image;
+        String[] dangerousSymptoms;
+
+        DiseaseInfo(String[] symptoms, String treatment, String precautions, String cause, String medicine, String department, String image, String[] dangerousSymptoms) {
+            this.symptoms = symptoms;
+            this.treatment = treatment;
+            this.precautions = precautions;
+            this.cause = cause;
+            this.medicine = medicine;
+            this.department = department;
+            this.image = image;
+            this.dangerousSymptoms = dangerousSymptoms;
+        }
+    }
+
+    static String[] diseaseNames;
+    static DiseaseInfo[] diseaseInfos;
+
+    static {
+        diseaseNames = new String[] {
+                "Heart Disease","Diabetes","Skin Allergy","Migraine","Asthma",
+                "Hypertension","Pneumonia","Tuberculosis","Arthritis","Gastritis",
+                "COVID-19","Flu","Chickenpox","Malaria"
+        };
+
+        diseaseInfos = new DiseaseInfo[] {
+                new DiseaseInfo(new String[]{"chest pain","shortness of breath","fatigue","dizziness","palpitations"},
+                        "Cardiac evaluation + meds", "Avoid smoking, walk daily", "Blocked arteries / cardiac strain",
+                        "Aspirin (doctor advice)", "Cardiology", "heart.png", new String[]{"chest pain","shortness of breath","palpitations"}),
+
+                new DiseaseInfo(new String[]{"thirst","fatigue","blurred vision","frequent urination","weight loss"},
+                        "Sugar control + doctor plan", "Diet control + exercise", "Insulin resistance",
+                        "Metformin (doctor advice)", "General Medicine", "diabetes.png", new String[]{"blurred vision","weight loss"}),
+
+                new DiseaseInfo(new String[]{"rash","itching","redness","swelling"},
+                        "Antihistamines", "Avoid allergens", "Allergic reaction",
+                        "Cetirizine (doctor advice)", "Dermatology", "allergy.png", new String[]{"swelling"}),
+
+                new DiseaseInfo(new String[]{"headache","nausea","sensitivity to light","blurred vision"},
+                        "Pain relief + rest", "Reduce stress, sleep well", "Neurological triggers",
+                        "Ibuprofen (doctor advice)", "Neurology", "migraine.png", new String[]{"blurred vision"}),
+
+                new DiseaseInfo(new String[]{"shortness of breath","wheezing","coughing","chest tightness"},
+                        "Inhaler plan", "Avoid triggers", "Airway inflammation",
+                        "Salbutamol (doctor advice)", "Pulmonology", "asthma.png", new String[]{"shortness of breath","chest tightness"}),
+
+                new DiseaseInfo(new String[]{"headache","dizziness","nosebleeds","fatigue"},
+                        "BP management", "Reduce salt, exercise", "High blood pressure",
+                        "Amlodipine (doctor advice)", "Cardiology", "hypertension.png", new String[]{"dizziness"}),
+
+                new DiseaseInfo(new String[]{"cough","fever","shortness of breath","chest pain"},
+                        "Doctor evaluation", "Rest + hydration", "Lung infection",
+                        "Amoxicillin (doctor advice)", "Pulmonology", "pneumonia.png", new String[]{"shortness of breath","chest pain"}),
+
+                new DiseaseInfo(new String[]{"cough","weight loss","fever","night sweats"},
+                        "TB clinic treatment", "Avoid spreading", "Bacterial infection",
+                        "Rifampicin (doctor advice)", "Pulmonology", "tb.png", new String[]{"weight loss","fever"}),
+
+                new DiseaseInfo(new String[]{"joint pain","stiffness","swelling","reduced motion"},
+                        "Pain control + physio", "Gentle exercise", "Joint inflammation",
+                        "Ibuprofen (doctor advice)", "Orthopedics", "arthritis.png", new String[]{"swelling"}),
+
+                new DiseaseInfo(new String[]{"stomach pain","nausea","vomiting","bloating"},
+                        "Antacid plan", "Avoid spicy/oily food", "Stomach lining irritation",
+                        "Omeprazole (doctor advice)", "Gastroenterology", "gastritis.png", new String[]{"vomiting"}),
+
+                new DiseaseInfo(new String[]{"fever","cough","shortness of breath","loss of taste","fatigue"},
+                        "Rest + hydration", "Mask if needed", "Viral infection",
+                        "Paracetamol (doctor advice)", "Pulmonology", "covid.png", new String[]{"shortness of breath","fever"}),
+
+                new DiseaseInfo(new String[]{"fever","cough","sore throat","fatigue","body ache"},
+                        "Rest + hydration", "Vaccination", "Viral infection",
+                        "Paracetamol (doctor advice)", "General Medicine", "flu.png", new String[]{"fever"}),
+
+                new DiseaseInfo(new String[]{"fever","rash","itching","fatigue"},
+                        "Supportive care", "Avoid scratching", "Viral infection",
+                        "Calamine lotion", "Dermatology", "chickenpox.png", new String[]{"fever","rash"}),
+
+                new DiseaseInfo(new String[]{"fever","chills","sweating","headache","nausea"},
+                        "Doctor evaluation", "Avoid mosquito bites", "Parasitic infection",
+                        "Artemether (doctor advice)", "General Medicine", "malaria.png", new String[]{"fever","chills"})
+        };
+    }
+
+    static void startDiagnosis(Component parent) {
+        String[] all = collectUniqueSymptoms();
+
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBorder(new EmptyBorder(15,15,15,15));
+        JCheckBox[] boxes = new JCheckBox[all.length];
+
+        for (int i = 0; i < all.length; i++) {
+            boxes[i] = new JCheckBox(all[i]);
+            boxes[i].setFont(new Font("Tahoma", Font.PLAIN, 14));
+            boxes[i].setBackground(new Color(245,245,245));
+            boxes[i].setFocusPainted(false);
+            boxes[i].setBorder(BorderFactory.createEmptyBorder(5,5,5,5));
+            panel.add(boxes[i]);
+            panel.add(Box.createVerticalStrut(3));
+        }
+
+        JScrollPane scrollPane = new JScrollPane(panel);
+        scrollPane.setPreferredSize(new Dimension(480,420));
+        scrollPane.getVerticalScrollBar().setUnitIncrement(10);
+
+        int res = JOptionPane.showConfirmDialog(parent, scrollPane,
+                "Select Your Symptoms", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if(res != JOptionPane.OK_OPTION) return;
+
+        String[] selected = getSelectedSymptoms(all, boxes);
+        if (selected.length == 0) {
+            JOptionPane.showMessageDialog(parent,"No symptom selected!","Warning",JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int bestIndex = -1;
+        int bestScore = 0;
+        for (int i = 0; i < diseaseInfos.length; i++) {
+            int score = 0;
+            for (String s : diseaseInfos[i].symptoms) {
+                for (String sel : selected) {
+                    if (s.equalsIgnoreCase(sel)) score++;
+                }
+            }
+            if (score > bestScore) {
+                bestScore = score;
+                bestIndex = i;
+            }
+        }
+
+        if (bestIndex == -1 || bestScore == 0) {
+            JOptionPane.showMessageDialog(parent,"No matching disease found","Result",JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        String bestMatch = diseaseNames[bestIndex];
+        DiseaseInfo info = diseaseInfos[bestIndex];
+
+        boolean severeAlert = false;
+        for (String sel : selected) {
+            for (String d : info.dangerousSymptoms) {
+                if (d.equalsIgnoreCase(sel)) severeAlert = true;
+            }
+        }
+
+        JPanel infoPanel = new JPanel(new BorderLayout(10,10));
+        infoPanel.setBackground(Color.WHITE);
+        infoPanel.setBorder(BorderFactory.createLineBorder(Color.GRAY, 2, true));
+
+        JLabel picLabel = new JLabel();
+        try {
+            ImageIcon icon = new ImageIcon(info.image);
+            Image img = icon.getImage().getScaledInstance(180,180, Image.SCALE_SMOOTH);
+            picLabel.setIcon(new ImageIcon(img));
+        } catch(Exception ex) { picLabel.setText("Image not found"); }
+        infoPanel.add(picLabel, BorderLayout.WEST);
+
+        JPanel textPanel = new JPanel();
+        textPanel.setLayout(new GridLayout(6,1,5,5));
+        textPanel.setBackground(Color.WHITE);
+
+        JLabel nameL = new JLabel("Disease (Possible): " + bestMatch + "   | Match Score: " + bestScore);
+        nameL.setFont(new Font("Arial", Font.BOLD, 16));
+        textPanel.add(nameL);
+
+        JTextArea t1 = makeCard("Department: " + info.department);
+        JTextArea t2 = makeCard("Treatment: " + info.treatment);
+        JTextArea t3 = makeCard("Precautions: " + info.precautions);
+        JTextArea t4 = makeCard("Cause: " + info.cause);
+        JTextArea t5 = makeCard("Medicine: " + info.medicine);
+        textPanel.add(t1); textPanel.add(t2); textPanel.add(t3); textPanel.add(t4); textPanel.add(t5);
+
+        infoPanel.add(textPanel, BorderLayout.CENTER);
+
+        if(severeAlert) {
+            JLabel alertLabel = new JLabel("⚠️ SEVERE SYMPTOMS DETECTED! VISIT HOSPITAL IMMEDIATELY.");
+            alertLabel.setForeground(Color.WHITE);
+            alertLabel.setOpaque(true);
+            alertLabel.setBackground(Color.RED);
+            alertLabel.setHorizontalAlignment(SwingConstants.CENTER);
+            alertLabel.setFont(new Font("Arial", Font.BOLD, 15));
+            infoPanel.add(alertLabel, BorderLayout.NORTH);
+        }
+
+        JOptionPane.showMessageDialog(parent, infoPanel, "Diagnosis Result", JOptionPane.PLAIN_MESSAGE);
+
+        // Save diagnosis session
+        StringBuilder selectedStr = new StringBuilder();
+        for (int i = 0; i < selected.length; i++) {
+            selectedStr.append(selected[i]);
+            if (i != selected.length - 1) selectedStr.append(", ");
+        }
+        FileUtil.appendLine("diagnosis_history.txt",
+                "Disease=" + bestMatch + "|Score=" + bestScore + "|Severe=" + (severeAlert ? "YES" : "NO") +
+                        "|Department=" + info.department + "|Symptoms=[" + selectedStr + "]");
+
+        Doctor[] rec = DoctorService.getDoctorsByDepartment(info.department);
+        if (rec.length > 0) {
+            StringBuilder sb = new StringBuilder("Recommended Doctors ("+info.department+"):\n\n");
+            for (Doctor d : rec) {
+                sb.append(d.name).append(" | City: ").append(d.city)
+                        .append(" | Email: ").append(d.email)
+                        .append(" | Phone: ").append(d.phone).append("\n");
+            }
+
+            int want = JOptionPane.showConfirmDialog(parent,
+                    sb.toString() + "\n\nDo you want to book an appointment with one of these doctors now?",
+                    "Recommended Doctors", JOptionPane.YES_NO_OPTION);
+
+            if (want == JOptionPane.YES_OPTION) {
+                AppointmentUI.openBookingWithDepartmentAndDoctor(parent, info.department, rec);
+            }
+        }
+    }
+
+    static JTextArea makeCard(String text) {
+        JTextArea a = new JTextArea(text);
+        a.setFont(new Font("Arial", Font.PLAIN, 13));
+        a.setEditable(false);
+        a.setLineWrap(true);
+        a.setWrapStyleWord(true);
+        a.setBorder(BorderFactory.createEmptyBorder(5,5,5,5));
+        a.setBackground(new Color(245,245,245));
+        return a;
+    }
+
+    static String[] collectUniqueSymptoms() {
+        String[] temp = new String[200];
+        int count = 0;
+
+        for (DiseaseInfo di : diseaseInfos) {
+            for (String s : di.symptoms) {
+                if (!containsIgnoreCase(temp, count, s)) {
+                    temp[count++] = s;
+                }
+            }
+        }
+
+        String[] out = new String[count];
+        for (int i = 0; i < count; i++) out[i] = temp[i];
+        return out;
+    }
+
+    static boolean containsIgnoreCase(String[] arr, int n, String val) {
+        for (int i = 0; i < n; i++) if (arr[i] != null && arr[i].equalsIgnoreCase(val)) return true;
+        return false;
+    }
+
+    static String[] getSelectedSymptoms(String[] all, JCheckBox[] boxes) {
+        int count = 0;
+        for (JCheckBox b : boxes) if (b.isSelected()) count++;
+        String[] sel = new String[count];
+        int idx = 0;
+        for (int i = 0; i < boxes.length; i++) if (boxes[i].isSelected()) sel[idx++] = all[i];
+        return sel;
+    }
+}
+
+/* ================= Patient Portal ================= */
+class PortalService {
+    static final String FILE_NAME = "patient_experience.txt";
+
+    static void shareExperience(Component parent) {
+        JPanel panel = new JPanel(new GridLayout(6,2,5,5));
+        panel.setBorder(new EmptyBorder(10,10,10,10));
+
+        JTextField nameF = new JTextField();
+        JTextField emailF = new JTextField();
+        JTextField diseaseF = new JTextField();
+        JTextField doctorF = new JTextField();
+        JTextField medicineF = new JTextField();
+        JTextField feedbackF = new JTextField();
+
+        panel.add(new JLabel("Name:")); panel.add(nameF);
+        panel.add(new JLabel("Email:")); panel.add(emailF);
+        panel.add(new JLabel("Disease:")); panel.add(diseaseF);
+        panel.add(new JLabel("Doctor:")); panel.add(doctorF);
+        panel.add(new JLabel("Medicines:")); panel.add(medicineF);
+        panel.add(new JLabel("Feedback:")); panel.add(feedbackF);
+
+        int res = JOptionPane.showConfirmDialog(parent, panel, "Patient Portal", JOptionPane.OK_CANCEL_OPTION);
+        if (res != JOptionPane.OK_OPTION) return;
+
+        FileUtil.appendLine(FILE_NAME,
+                nameF.getText()+"|"+emailF.getText()+"|"+diseaseF.getText()+"|"+doctorF.getText()+"|"+medicineF.getText()+"|"+feedbackF.getText());
+
+        JOptionPane.showMessageDialog(parent,"Experience saved!");
+    }
+
+    static void viewAllExperiences(Component parent) {
+        String[] columns = {"Name","Email","Disease","Doctor","Medicines","Feedback"};
+        DefaultTableModel model = new DefaultTableModel(columns,0);
+
+        FileUtil.ensureFileExists(FILE_NAME);
+
+        try (BufferedReader br = new BufferedReader(new FileReader(FILE_NAME))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] data = line.split("\\|");
+                model.addRow(data);
+            }
+        } catch(IOException e) {
+            JOptionPane.showMessageDialog(parent,"Error: "+e.getMessage());
+        }
+
+        JTable table = new JTable(model);
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
+        JScrollPane scrollPane = new JScrollPane(table);
+        scrollPane.setPreferredSize(new Dimension(750,300));
+        JOptionPane.showMessageDialog(parent, scrollPane, "All Patient Experiences", JOptionPane.PLAIN_MESSAGE);
+    }
+}
+
+/* ================= Appointment UI ================= */
+class AppointmentUI {
+
+    private static final String FILE_NAME = "appointments.txt";
+
+    private static final Color PRIMARY_COLOR = new Color(50, 100, 200);
+    private static final Color ACCENT_COLOR = new Color(70, 130, 240);
+    private static final Color BG_COLOR = new Color(245, 245, 250);
+    private static final Color TEXT_COLOR = new Color(50, 50, 50);
+    private static final Font TITLE_FONT = new Font("Segoe UI", Font.BOLD, 22);
+    private static final Font NORMAL_FONT = new Font("Segoe UI", Font.PLAIN, 14);
+    private static final Font BTN_FONT = new Font("Segoe UI", Font.BOLD, 14);
+
+    static class Appt {
+        String patient, hospital, doctor, date, time;
+        Appt(String p, String h, String d, String dt, String t) { patient=p; hospital=h; doctor=d; date=dt; time=t; }
+    }
+
+    static void openMenu(Component parent) {
+        String[] options = {"Book Appointment", "View Records"};
+        int choice = JOptionPane.showOptionDialog(parent, "Appointments", "Appointments",
+                JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, options, options[0]);
+        if (choice == 0) openBookingForm(parent, null);
+        else if (choice == 1) viewRecords(parent);
+    }
+
+    static void openBookingWithDepartmentAndDoctor(Component parent, String department, Doctor[] recDoctors) {
+        String[] names = new String[recDoctors.length];
+        for (int i = 0; i < recDoctors.length; i++)
+            names[i] = recDoctors[i].name + " (" + recDoctors[i].department + ", " + recDoctors[i].city + ")";
+        JComboBox<String> docBox = new JComboBox<>(names);
+
+        JPanel p = new JPanel(new GridLayout(2,1,10,10));
+        p.add(new JLabel("Recommended Department: " + department));
+        p.add(docBox);
+
+        int ok = JOptionPane.showConfirmDialog(parent, p, "Select Doctor", JOptionPane.OK_CANCEL_OPTION);
+        if (ok != JOptionPane.OK_OPTION) return;
+
+        String selected = (String) docBox.getSelectedItem();
+        openBookingForm(parent, selected);
+    }
+
+    static void openBookingForm(Component parent, String prefilledDoctor) {
+        JDialog dialog = new JDialog((Frame) null, "Book Appointment", true);
+        dialog.setSize(520, 420);
+        dialog.setLayout(new BorderLayout());
+        dialog.setLocationRelativeTo(parent);
+
+        JPanel header = new JPanel();
+        header.setBackground(PRIMARY_COLOR);
+        header.setBorder(new EmptyBorder(10,10,10,10));
+        JLabel title = new JLabel(" Book Appointment");
+        title.setForeground(Color.WHITE);
+        title.setFont(TITLE_FONT);
+        header.add(title);
+        dialog.add(header, BorderLayout.NORTH);
+
+        JPanel form = new JPanel(new GridLayout(6,2,10,10));
+        form.setBorder(new EmptyBorder(15,15,15,15));
+        form.setBackground(BG_COLOR);
+
+        JTextField patientF = new JTextField();
+        JTextField hospitalF = new JTextField();
+        JComboBox<String> doctorBox = new JComboBox<>(DoctorService.getDoctorNames());
+        JTextField dateF = new JTextField();
+        JTextField timeF = new JTextField();
+
+        if (prefilledDoctor != null) doctorBox.setSelectedItem(prefilledDoctor);
+
+        add(form,"Patient Name:", patientF);
+        add(form,"Hospital Name:", hospitalF);
+        add(form,"Doctor:", doctorBox);
+        add(form,"Date (DD-MM-YYYY):", dateF);
+        add(form,"Time Slot (e.g., 10AM):", timeF);
+
+        JLabel tip = new JLabel("Tip: Same doctor + same date + same time = conflict (not allowed).");
+        tip.setForeground(new Color(70,70,70));
+        tip.setFont(NORMAL_FONT);
+        form.add(tip); form.add(new JLabel(""));
+
+        dialog.add(form, BorderLayout.CENTER);
+
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT,10,10));
+        buttons.setBackground(BG_COLOR);
+        JButton back = new JButton("Back");
+        JButton book = new JButton("Confirm Booking");
+        styleBtn(back, Color.GRAY);
+        styleBtn(book, ACCENT_COLOR);
+
+        back.addActionListener(e -> dialog.dispose());
+        book.addActionListener(e -> {
+            String patient = patientF.getText().trim();
+            String hospital = hospitalF.getText().trim();
+            String doctor = (String) doctorBox.getSelectedItem();
+            String date = dateF.getText().trim();
+            String time = timeF.getText().trim();
+
+            if (patient.isEmpty() || hospital.isEmpty() || doctor == null || date.isEmpty() || time.isEmpty()) {
+                JOptionPane.showMessageDialog(dialog, "Please fill all fields!", "Missing Info", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            Appt[] all = loadAll();
+            for (Appt a : all) {
+                if (a.doctor.equalsIgnoreCase(doctor) && a.date.equalsIgnoreCase(date) && a.time.equalsIgnoreCase(time)) {
+                    JOptionPane.showMessageDialog(dialog, "Slot Taken! Doctor is busy at that time.", "Conflict", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+            }
+
+            save(new Appt(patient,hospital,doctor,date,time));
+            JOptionPane.showMessageDialog(dialog, "Appointment Booked Successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+            dialog.dispose();
+        });
+
+        buttons.add(back);
+        buttons.add(book);
+        dialog.add(buttons, BorderLayout.SOUTH);
+
+        dialog.setVisible(true);
+    }
+
+    static void viewRecords(Component parent) {
+        String[] cols = {"Patient","Hospital","Doctor","Date","Time"};
+        DefaultTableModel model = new DefaultTableModel(cols,0);
+
+        Appt[] all = loadAll();
+        for (Appt a : all) model.addRow(new Object[]{a.patient,a.hospital,a.doctor,a.date,a.time});
+
+        JTable table = new JTable(model);
+        table.setFont(NORMAL_FONT);
+        table.setRowHeight(25);
+        table.setSelectionBackground(ACCENT_COLOR);
+        table.setSelectionForeground(Color.WHITE);
+
+        JTableHeader header = table.getTableHeader();
+        header.setBackground(PRIMARY_COLOR);
+        header.setForeground(Color.WHITE);
+        header.setFont(BTN_FONT);
+
+        JScrollPane sp = new JScrollPane(table);
+        sp.setPreferredSize(new Dimension(850, 350));
+        JOptionPane.showMessageDialog(parent, sp, "Appointment Records", JOptionPane.PLAIN_MESSAGE);
+    }
+
+    static void add(JPanel p, String label, JComponent field) {
+        JLabel l = new JLabel(label);
+        l.setForeground(TEXT_COLOR);
+        l.setFont(NORMAL_FONT);
+        p.add(l);
+        if (field instanceof JTextField tf) {
+            tf.setFont(NORMAL_FONT);
+            tf.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(Color.GRAY, 1),
+                    BorderFactory.createEmptyBorder(5,5,5,5)
+            ));
+        }
+        p.add(field);
+    }
+
+    static void styleBtn(JButton b, Color bg) {
+        b.setFont(BTN_FONT);
+        b.setForeground(Color.WHITE);
+        b.setBackground(bg);
+        b.setFocusPainted(false);
+        b.setBorder(BorderFactory.createEmptyBorder(8,14,8,14));
+    }
+
+    static void save(Appt a) {
+        FileUtil.appendLine(FILE_NAME, a.patient + "|" + a.hospital + "|" + a.doctor + "|" + a.date + "|" + a.time);
+    }
+
+    static Appt[] loadAll() {
+        FileUtil.ensureFileExists(FILE_NAME);
+
+        int count = 0;
+        try (BufferedReader br = new BufferedReader(new FileReader(FILE_NAME))) {
+            while (br.readLine() != null) count++;
+        } catch (Exception e) { }
+
+        Appt[] arr = new Appt[count];
+        int idx = 0;
+
+        try (BufferedReader br = new BufferedReader(new FileReader(FILE_NAME))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] d = line.split("\\|");
+                if (d.length == 5) arr[idx++] = new Appt(d[0],d[1],d[2],d[3],d[4]);
+            }
+        } catch (Exception e) { }
+
+        if (idx < count) {
+            Appt[] trimmed = new Appt[idx];
+            for (int i = 0; i < idx; i++) trimmed[i] = arr[i];
+            return trimmed;
+        }
+        return arr;
+    }
+}
+
+/* ================= Doctor Check Feature ================= */
+class DoctorCheckService {
+
+    static final String PATIENT_FILE = "patients.txt";
+
+    static void open(Component parent) {
+        JTextField nameF = new JTextField();
+        JTextField cityF = new JTextField();
+        JTextField phoneF = new JTextField();
+        JTextField specialtyF = new JTextField();
+
+        Object[] msg = {
+                "Enter your name:", nameF,
+                "Enter your city (e.g., Karachi):", cityF,
+                "Enter your phone:", phoneF,
+                "Optional specialty (e.g., Cardiology):", specialtyF
+        };
+
+        int ok = JOptionPane.showConfirmDialog(parent, msg, "Doctor Check", JOptionPane.OK_CANCEL_OPTION);
+        if (ok != JOptionPane.OK_OPTION) return;
+
+        String patientName = nameF.getText().trim();
+        String patientCity = cityF.getText().trim();
+        String patientPhone = phoneF.getText().trim();
+        String specialty = specialtyF.getText().trim();
+
+        if (patientName.isEmpty() || patientCity.isEmpty() || patientPhone.isEmpty()) {
+            JOptionPane.showMessageDialog(parent, "Please fill name, city, phone!", "Missing Info", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        FileUtil.appendLine(PATIENT_FILE, patientName + "|" + patientCity + "|" + patientPhone);
+
+        Doctor[] results = DoctorService.getDoctorsByCityAndSpecialty(patientCity, specialty);
+
+        if (results.length == 0) {
+            JOptionPane.showMessageDialog(parent, "No doctors found for that city/specialty.", "No Results", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        String[] display = new String[results.length];
+        for (int i = 0; i < results.length; i++) {
+            display[i] = results[i].name + " (" + results[i].department + ", " + results[i].city + ")";
+        }
+
+        JComboBox<String> box = new JComboBox<>(display);
+
+        JTextArea info = new JTextArea();
+        info.setEditable(false);
+        info.setFont(new Font("Monospaced", Font.PLAIN, 13));
+        info.setText(buildDoctorInfo(results[0]));
+
+        box.addActionListener(e -> {
+            int idx = box.getSelectedIndex();
+            info.setText(buildDoctorInfo(results[idx]));
+        });
+
+        JScrollPane infoScroll = new JScrollPane(info);
+        infoScroll.setPreferredSize(new Dimension(650, 250));
+
+        JPanel panel = new JPanel(new BorderLayout(10,10));
+        panel.setBorder(new EmptyBorder(10,10,10,10));
+        panel.add(new JLabel("Select Doctor:"), BorderLayout.NORTH);
+        panel.add(box, BorderLayout.CENTER);
+        panel.add(infoScroll, BorderLayout.SOUTH);
+
+        int wantBook = JOptionPane.showConfirmDialog(parent, panel, "Doctors Found", JOptionPane.OK_CANCEL_OPTION);
+        if (wantBook != JOptionPane.OK_OPTION) return;
+
+        String selectedDoctor = (String) box.getSelectedItem();
+        FileUtil.appendLine("doctor_check_history.txt",
+                patientName + "|" + patientCity + "|" + patientPhone + "|Selected=" + selectedDoctor);
+
+        int ask = JOptionPane.showConfirmDialog(parent, "Book appointment with selected doctor?", "Appointment", JOptionPane.YES_NO_OPTION);
+        if (ask == JOptionPane.YES_OPTION) {
+            AppointmentUI.openBookingForm(parent, selectedDoctor);
+        }
+    }
+
+    static String buildDoctorInfo(Doctor d) {
+        return "Doctor: " + d.name + "\n"
+                + "City: " + d.city + "\n"
+                + "Specialty: " + d.department + "\n"
+                + "Email: " + d.email + "\n"
+                + "Phone: " + d.phone + "\n";
+    }
+}
+
+/* ================= Main GUI ================= */
+public class OnlineHealthSystemFX {
+    public static void main(String[] args) {
+        try {
+            for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
+                if ("Nimbus".equals(info.getName())) {
+                    UIManager.setLookAndFeel(info.getClassName());
+                    break;
+                }
+            }
+        } catch (Exception e) { }
+
+        SwingUtilities.invokeLater(() -> {
+            JFrame frame = new JFrame("Online Health System Portal");
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.setSize(900,650);
+            frame.setLayout(new BorderLayout());
+
+            JLabel header = new JLabel("🩺 Welcome to Online Health Portal", SwingConstants.CENTER);
+            header.setFont(new Font("Arial",Font.BOLD,24));
+            header.setBorder(new EmptyBorder(10,10,10,10));
+            frame.add(header, BorderLayout.NORTH);
+
+            JTabbedPane tabs = new JTabbedPane();
+
+            JPanel diagPanel = new JPanel(new FlowLayout(FlowLayout.LEFT,20,20));
+            JButton diagBtn = new JButton("🩺 Start Diagnosis");
+            diagBtn.setPreferredSize(new Dimension(260,50));
+            diagBtn.setBackground(new Color(102,178,255));
+            diagBtn.setForeground(Color.BLACK);
+            diagBtn.setFont(new Font("Arial",Font.BOLD,16));
+            diagBtn.addActionListener(e -> DiagnosisService.startDiagnosis(frame));
+            diagPanel.add(diagBtn);
+            tabs.addTab("Diagnosis", diagPanel);
+
+            JPanel emergPanel = new JPanel(new FlowLayout(FlowLayout.LEFT,20,20));
+            JButton emergBtn = new JButton("🏥 Find Nearest Hospital");
+            emergBtn.setPreferredSize(new Dimension(260,50));
+            emergBtn.setBackground(new Color(255,153,153));
+            emergBtn.setForeground(Color.BLACK);
+            emergBtn.setFont(new Font("Arial",Font.BOLD,16));
+            emergBtn.addActionListener(e -> EmergencyService.findNearest(frame));
+            emergPanel.add(emergBtn);
+            tabs.addTab("Emergency", emergPanel);
+
+            JPanel portalPanel = new JPanel(new FlowLayout(FlowLayout.LEFT,20,20));
+            JButton addExpBtn = new JButton("📝 Add Experience");
+            addExpBtn.setPreferredSize(new Dimension(240,50));
+            addExpBtn.setBackground(new Color(153,255,153));
+            addExpBtn.setFont(new Font("Arial",Font.BOLD,16));
+            addExpBtn.addActionListener(e -> PortalService.shareExperience(frame));
+
+            JButton viewExpBtn = new JButton("📋 View Experiences");
+            viewExpBtn.setPreferredSize(new Dimension(240,50));
+            viewExpBtn.setBackground(new Color(255,204,102));
+            viewExpBtn.setFont(new Font("Arial",Font.BOLD,16));
+            viewExpBtn.addActionListener(e -> PortalService.viewAllExperiences(frame));
+
+            portalPanel.add(addExpBtn);
+            portalPanel.add(viewExpBtn);
+            tabs.addTab("Patient Portal", portalPanel);
+
+            JPanel appPanel = new JPanel(new FlowLayout(FlowLayout.LEFT,20,20));
+            JButton appBtn = new JButton("📅 Appointments");
+            appBtn.setPreferredSize(new Dimension(260,50));
+            appBtn.setBackground(new Color(150,200,255));
+            appBtn.setFont(new Font("Arial",Font.BOLD,16));
+            appBtn.addActionListener(e -> AppointmentUI.openMenu(frame));
+            appPanel.add(appBtn);
+            tabs.addTab("Appointments", appPanel);
+
+            JPanel doctorPanel = new JPanel(new FlowLayout(FlowLayout.LEFT,20,20));
+            JButton doctorBtn = new JButton("👨‍⚕️ Check Doctors");
+            doctorBtn.setPreferredSize(new Dimension(260,50));
+            doctorBtn.setBackground(new Color(190,230,255));
+            doctorBtn.setFont(new Font("Arial",Font.BOLD,16));
+            doctorBtn.addActionListener(e -> DoctorCheckService.open(frame));
+            doctorPanel.add(doctorBtn);
+            tabs.addTab("Doctor Check", doctorPanel);
+
+            frame.add(tabs, BorderLayout.CENTER);
+            frame.setLocationRelativeTo(null);
+            frame.setVisible(true);
+
+            // Ensure all storage files exist
+            FileUtil.ensureFileExists("patient_experience.txt");
+            FileUtil.ensureFileExists("appointments.txt");
+            FileUtil.ensureFileExists("patients.txt");
+            FileUtil.ensureFileExists("diagnosis_history.txt");
+            FileUtil.ensureFileExists("doctor_check_history.txt");
+            FileUtil.ensureFileExists("emergency_history.txt");
+        });
+    }
+}
