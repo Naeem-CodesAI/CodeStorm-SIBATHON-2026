@@ -82,7 +82,6 @@ public class Main {
         Doctor d29 = new Doctor("Dr Omar Khalid", "Lahore", "Dentist", "0335-4444446");
         Doctor d30 = new Doctor("Dr Mariam Yousuf", "Islamabad", "Gynaecologist", "0345-5555556");
 
-        // Save doctors into file (overwrites file each run)
         try {
             FileWriter fw = new FileWriter(DOCTOR_FILE);
 
@@ -149,7 +148,7 @@ public class Main {
         if (!found) {
             System.out.println("Sorry! No doctors found in " + patientCity + ".");
         }
-    } // ✅ closes viewDoctors properly
+    } 
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
@@ -167,3 +166,4 @@ public class Main {
         sc.close();
     }
 }
+
